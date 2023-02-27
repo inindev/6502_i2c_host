@@ -83,6 +83,17 @@ build_uf2() {
 
 main() {
     flash "$FWBIN"
+
+    if [ 'xm' = "x$1" ]; then
+        echo "connecting serial monitor..."
+        if [ -d '/Volumes' ]; then
+            port='/dev/cu.usbmodem*'
+        else
+            port='/dev/ttyACM*'
+        fi
+        while [ ! -c $port ]; do sleep 0.1; done
+        tinygo monitor -port $port
+    fi
 }
 
 rst='\033[m'
