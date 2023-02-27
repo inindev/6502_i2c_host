@@ -12,17 +12,13 @@ VNAME='RPI-RP2'
 # exit codes
 #  1 - build failure (no .uf2 file)
 #  2 - unknown os
-#  3 - volume not found
-#  4 - block device for volume not found (linux only)
-#  5 - unknown error
+#  3 - block device for volume not found (linux only)
 
 flash_macosx() {
     uf2file="$1"
 
     vol="/Volumes/$VNAME"
     if [ ! -d "$vol" ]; then
-#        echo "${red}error: $vol not found${rst}"
-#        exit 3
         echo "mounting uf2 volume..."
         stty -f /dev/cu.usbmodem* 1200
         while [ ! -d "$vol" ]; do sleep 0.1; done
@@ -39,17 +35,15 @@ flash_linux() {
 
     vol="/dev/disk/by-label/$VNAME"
     if [ ! -d "$vol" ]; then
-        # echo "${red}error: $vol not found${rst}"
-        # exit 3
         echo "mounting uf2 volume..."
-        stty -F /dev/cu.usbmodem* 1200
-        while [ ! -d "$vol" ]; do sleep 0.1; done
+        stty -F /dev/ttyACM* 1200
+        while [ ! -h "$vol" ]; do sleep 0.1; done
         sleep 0.5
     fi
 
     if ! bd=$(readlink -f "$vol"); then
         echo "${red}error: block device for $vol not found${rst}"
-        exit 4
+        exit 3
     fi
 
     build_uf2 "$uf2file"
