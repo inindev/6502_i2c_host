@@ -10,7 +10,6 @@ const (
 	LED          = machine.NoPin
 
 	INT_PIN = machine.GPIO3
-	INT_LED = LED
 
 	I2C_SDA       = machine.I2C1_QT_SDA_PIN
 	I2C_SCL       = machine.I2C1_QT_SCL_PIN

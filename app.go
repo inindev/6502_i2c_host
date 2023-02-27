@@ -11,63 +11,32 @@ var code = []uint8{
 }
 
 var (
-	ram [64 * 1024]uint8 // 64k ram
-
-	// pinInt = machine.GPIO3
-	// ledInt = machine.GPIO29
-
-	i2cGpio I2cGpio
-
+	ram             [0x10000]uint8 // 64k ram
+	i2cGpio         I2cGpio
 	inputEventTicks int64
 )
 
 func main() {
-	// configure interrupt pin
-	INT_PIN.Configure(machine.PinConfig{Mode: machine.PinInput | machine.PinInputPulldown})
-	INT_PIN.SetInterrupt(machine.PinFalling, onInterrupt)
-
-	if INT_LED != machine.NoPin {
-		INT_LED.Configure(machine.PinConfig{Mode: machine.PinOutput})
-		INT_LED.Set(false)
-	}
-
-	//	i2cGpio, err := NewI2cGpio(machine.I2C1, machine.I2C1_QT_SDA_PIN, machine.I2C1_QT_SCL_PIN)
-	i2cGpio, err := NewI2cGpio(I2C_PORT, I2C_SDA, I2C_SCL)
-	if err != nil {
-		doPanic(err, 1)
-	}
-
-	err = i2cGpio.setupIO(UNIT_20, 0x0000) // unit_20: all output
-	if err != nil {
-		doPanic(err, 2)
-	}
-
-	err = i2cGpio.setupIO(UNIT_21, 0xff00) // unit_21: bank a input, b output
-	if err != nil {
-		doPanic(err, 3)
-	}
-
-	err = i2cGpio.setupInterrupt(UNIT_21, 0xff00) // unit_21: bank a interrupt on change
-	if err != nil {
-		doPanic(err, 4)
-	}
+	i2cGpio = configIO()
 
 	// store program at address
 	prog(0x6000)
 
 	for {
-		for i := 256; i < 512; i++ {
+		base := 0
+		for i := base; i < base+0x100; i++ {
 			x := ram[i]
+			y := revBits(x)
 
 			// write unit_20, banks a & b
-			val := uint16(x)<<8 | uint16(x)
-			err = i2cGpio.setValue(UNIT_20, val)
+			val := uint16(x)<<8 | uint16(y)
+			err := i2cGpio.setValue(UNIT_20, val)
 			if err != nil {
 				doPanic(err, 5)
 			}
 
 			// write unit_21, bank b only
-			err = i2cGpio.setValueB(UNIT_21, x)
+			err = i2cGpio.setValueB(UNIT_21, y)
 			if err != nil {
 				doPanic(err, 6)
 			}
@@ -82,21 +51,18 @@ func main() {
 				}
 
 				processInputEvent(val, ticks)
-				if INT_LED != machine.NoPin {
-					INT_LED.Set(false)
-				}
 			}
 
 			time.Sleep(time.Millisecond * 50)
 
-			// if i == 255 {
-			// 	time.Sleep(time.Second)
-			// }
+			if base == 0 && i == 255 {
+				time.Sleep(time.Second)
+			}
 		}
 	}
 }
 
-// addr to store code
+// store code at addr
 func prog(addr uint16) {
 	copy(ram[0:], code)
 
@@ -105,12 +71,12 @@ func prog(addr uint16) {
 		ram[i] = 0xea
 	}
 
-	// counter 0-255
+	// demo: counter 0-255
 	for i := 0; i < 256; i++ {
 		ram[i] = uint8(i)
 	}
 
-	// sweep 256-511
+	// demo: sweep 256-511
 	for i := 256; i < 512; i++ {
 		m16 := i % 16
 		if m16 < 8 {
@@ -131,14 +97,35 @@ func prog(addr uint16) {
 }
 
 func onInterrupt(pin machine.Pin) {
-	if INT_LED != machine.NoPin {
-		INT_LED.Set(true)
-	}
 	inputEventTicks = time.Now().UnixMilli()
 }
 
-func configIO() {
+func configIO() I2cGpio {
+	// configure interrupt pin
+	INT_PIN.Configure(machine.PinConfig{Mode: machine.PinInput | machine.PinInputPulldown})
+	INT_PIN.SetInterrupt(machine.PinFalling, onInterrupt)
 
+	i2cGpio, err := NewI2cGpio(I2C_PORT, I2C_SDA, I2C_SCL)
+	if err != nil {
+		doPanic(err, 1)
+	}
+
+	err = i2cGpio.setupIO(UNIT_20, 0x0000) // unit_20: all output
+	if err != nil {
+		doPanic(err, 2)
+	}
+
+	err = i2cGpio.setupIO(UNIT_21, 0xff00) // unit_21: bank a input, b output
+	if err != nil {
+		doPanic(err, 3)
+	}
+
+	err = i2cGpio.setupInterrupt(UNIT_21, 0xff00) // unit_21: bank a interrupt on change
+	if err != nil {
+		doPanic(err, 4)
+	}
+
+	return i2cGpio
 }
 
 func doPanic(err error, num uint8) {
@@ -186,8 +173,8 @@ func toHex(x uint8) string {
 }
 
 func revBits(x uint8) uint8 {
-	x = (x&0xf0)>>4 | (x&0x0f)<<4
-	x = (x&0xcc)>>2 | (x&0x33)<<2
 	x = (x&0xaa)>>1 | (x&0x55)<<1
+	x = (x&0xcc)>>2 | (x&0x33)<<2
+	x = (x&0xf0)>>4 | (x&0x0f)<<4
 	return x
 }

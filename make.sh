@@ -2,8 +2,8 @@
 
 set -e
 
-#BOARD='qtpy-rp2040'
-BOARD='feather-rp2040'
+BOARD='qtpy-rp2040'
+#BOARD='feather-rp2040'
 #BOARD='xiao-rp2040'
 #BOARD='pico'
 FWBIN='firmware.uf2'
@@ -39,8 +39,12 @@ flash_linux() {
 
     vol="/dev/disk/by-label/$VNAME"
     if [ ! -d "$vol" ]; then
-        echo "${red}error: $vol not found${rst}"
-        exit 3
+        # echo "${red}error: $vol not found${rst}"
+        # exit 3
+        echo "mounting uf2 volume..."
+        stty -F /dev/cu.usbmodem* 1200
+        while [ ! -d "$vol" ]; do sleep 0.1; done
+        sleep 0.5
     fi
 
     if ! bd=$(readlink -f "$vol"); then
@@ -76,6 +80,7 @@ build_uf2() {
     uf2file="$1"
 
     rm -rf "$uf2file"
+    echo "building for $BOARD"
     if ! tinygo build -target "$BOARD" -o "$uf2file" .; then
         echo "${yel}uf2-flash: ${red}failed to build uf2 file${rst}"
         exit 1

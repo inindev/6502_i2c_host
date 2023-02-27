@@ -10,7 +10,6 @@ const (
 	LED          = machine.GPIO13
 
 	INT_PIN = machine.GPIO6
-	INT_LED = LED
 
 	I2C_SDA       = machine.I2C1_SDA_PIN
 	I2C_SCL       = machine.I2C1_SCL_PIN
